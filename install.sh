@@ -92,6 +92,11 @@ for cmd in curl sha512sum tar; do
     fi
 done
 
+# Optional: desktop notifications on update success/failure via libnotify
+if ! command -v notify-send >/dev/null 2>&1; then
+    log "notify-send not found; desktop notifications will be skipped (install libnotify to enable them)"
+fi
+
 if [ ! -f "$source_script" ]; then
     die "Updater script not found: $source_script (run install.sh from the repo)"
 fi

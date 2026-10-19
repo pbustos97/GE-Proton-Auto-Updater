@@ -14,9 +14,23 @@ arch=$(uname -m)
 # Logging helper: a stable prefix makes journalctl -u output identifiable
 log() { echo "[ge-proton-update] $*"; }
 
+# Desktop notification helper: no-op when notify-send (libnotify) is missing
+# or no notification daemon is running, and never fails the update itself
+notify() {
+    command -v notify-send >/dev/null 2>&1 || return 0
+    notify-send -a "GE Proton Updater" "$@" 2>/dev/null || true
+}
+
 # Always clean up the temp dir and report failure, including when a download,
 # checksum, or extraction step aborts under set -e
-cleanup() { rc=$?; rm -rf "$tmpDir"; [ $rc -eq 0 ] || log "Update failed (exit $rc)"; }
+cleanup() {
+    rc=$?
+    rm -rf "$tmpDir"
+    if [ $rc -ne 0 ]; then
+        log "Update failed (exit $rc)"
+        notify -u critical "GE Proton update failed" "Check journalctl --user -u ge-proton-update for details (exit $rc)"
+    fi
+}
 trap cleanup EXIT
 
 if [ -d "$steamNativeDir" ]; then
@@ -65,3 +79,4 @@ tar -xf GE-Proton*.tar.gz -C "$steamDir"
 
 log "GE Proton $version installed"
 log "Restart Steam if it is open"
+notify "GE Proton $version installed" "Restart Steam to pick it up."
