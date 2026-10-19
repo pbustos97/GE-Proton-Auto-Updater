@@ -40,7 +40,7 @@ do_uninstall() {
     log "Removing unit file $unit_file"
     rm -f "$unit_file"
 
-    if [ -f "$installed_script" ]; then
+    if [[ -f "$installed_script" ]]; then
         log "Removing updater script $installed_script"
         rm -f "$installed_script"
     fi
@@ -73,7 +73,7 @@ esac
 
 # --- Prerequisite checks -----------------------------------------------------
 
-if [ "$(id -u)" -eq 0 ]; then
+if [[ $(id -u) -eq 0 ]]; then
     die "This installer sets up a per-user service; do not run as root"
 fi
 
@@ -97,7 +97,7 @@ if ! command -v notify-send >/dev/null 2>&1; then
     log "notify-send not found; desktop notifications will be skipped (install libnotify to enable them)"
 fi
 
-if [ ! -f "$source_script" ]; then
+if [[ ! -f "$source_script" ]]; then
     die "Updater script not found: $source_script (run install.sh from the repo)"
 fi
 
