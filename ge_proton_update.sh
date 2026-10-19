@@ -14,15 +14,29 @@ arch=$(uname -m)
 # Logging helper: a stable prefix makes journalctl -u output identifiable
 log() { echo "[ge-proton-update] $*"; }
 
+# Desktop notification helper: no-op when notify-send (libnotify) is missing
+# or no notification daemon is running, and never fails the update itself
+notify() {
+    command -v notify-send >/dev/null 2>&1 || return 0
+    notify-send -a "GE Proton Updater" "$@" 2>/dev/null || true
+}
+
 # Always clean up the temp dir and report failure, including when a download,
 # checksum, or extraction step aborts under set -e
-cleanup() { rc=$?; rm -rf "$tmpDir"; [ $rc -eq 0 ] || log "Update failed (exit $rc)"; }
+cleanup() {
+    rc=$?
+    rm -rf "$tmpDir"
+    if [[ $rc -ne 0 ]]; then
+        log "Update failed (exit $rc)"
+        notify -u critical "GE Proton update failed" "Check journalctl --user -u ge-proton-update for details (exit $rc)"
+    fi
+}
 trap cleanup EXIT
 
-if [ -d "$steamNativeDir" ]; then
+if [[ -d "$steamNativeDir" ]]; then
     log "Using native Steam install at $steamNativeDir"
     steamDir=$steamNativeDir
-elif [ -d "$steamFlatpakDir" ]; then
+elif [[ -d "$steamFlatpakDir" ]]; then
     log "Using Flatpak Steam install at $steamFlatpakDir"
     steamDir=$steamFlatpakDir
 else
@@ -38,11 +52,11 @@ mkdir -p "$steamDir"
 log "Checking latest GE Proton release"
 releaseJSON=$(curl -sf --retry 3 "$GE_Proton_Github") || { log "Failed to fetch release information from GitHub"; exit 1; }
 version=$(echo "$releaseJSON" | grep tag_name | cut -d\" -f4 || true)
-[ -n "$version" ] || { log "Could not determine the latest release version"; exit 1; }
+[[ -n "$version" ]] || { log "Could not determine the latest release version"; exit 1; }
 
 # The tarball extracts to <tag>-<arch> in newer releases (e.g. GE-Proton11-9-x86_64),
 # or just <tag> in older ones (e.g. GE-Proton11-3)
-if [ -d "$steamDir/$version-$arch" ] || [ -d "$steamDir/$version" ]; then
+if [[ -d "$steamDir/$version-$arch" || -d "$steamDir/$version" ]]; then
     log "GE Proton $version is already installed"
     exit 0
 fi
@@ -52,7 +66,7 @@ rm -rf "$tmpDir" && mkdir -p "$tmpDir" && cd "$tmpDir"
 # Resolve download URLs up front so a malformed release is caught early
 tarballUrl=$(echo "$releaseJSON" | grep browser_download_url | cut -d\" -f4 | grep "$arch.tar.gz" || true)
 checksumUrl=$(echo "$releaseJSON" | grep browser_download_url | cut -d\" -f4 | grep "$arch.sha512sum" || true)
-[ -n "$tarballUrl" ] && [ -n "$checksumUrl" ] || { log "Latest release has no $arch tarball"; exit 1; }
+[[ -n "$tarballUrl" && -n "$checksumUrl" ]] || { log "Latest release has no $arch tarball"; exit 1; }
 
 log "Downloading $version archives"
 curl -fsLOJ --retry 3 "$tarballUrl" && curl -fsLOJ --retry 3 "$checksumUrl"
@@ -65,3 +79,4 @@ tar -xf GE-Proton*.tar.gz -C "$steamDir"
 
 log "GE Proton $version installed"
 log "Restart Steam if it is open"
+notify "GE Proton $version installed" "Restart Steam to pick it up."

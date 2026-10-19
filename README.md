@@ -11,11 +11,13 @@ The updater checks GitHub for the [latest GE Proton release](https://github.com/
 - Runs **once per boot**, shortly after login (does not re-run on logout/login within the same boot)
 - Skips the download entirely if the latest version is already installed
 - Verifies downloads with the release's sha512 checksum
+- **Desktop notifications** when an update is installed or fails (optional, via `libnotify`)
 
 ## Requirements
 
 - Linux with **systemd** (user session, standard on all modern distros)
 - `bash`, `curl`, `tar`, and `coreutils` (`sha512sum`)
+- `libnotify` (`notify-send`) is **optional** — without it the updater works exactly the same, it just skips the popups. Install it via e.g. `libnotify` (Arch), `libnotify-bin` (Debian/Ubuntu), or `libnotify` (Fedora).
 
 ## Installation
 
