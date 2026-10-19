@@ -26,7 +26,7 @@ notify() {
 cleanup() {
     rc=$?
     rm -rf "$tmpDir"
-    if [ $rc -ne 0 ]; then
+    if [[ $rc -ne 0 ]]; then
         log "Update failed (exit $rc)"
         notify -u critical "GE Proton update failed" "Check journalctl --user -u ge-proton-update for details (exit $rc)"
     fi
