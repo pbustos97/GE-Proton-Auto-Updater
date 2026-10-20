@@ -4,22 +4,23 @@ set -euo pipefail
 # Downloads and installs the latest GE Proton release for either a native or
 # Flatpak Steam installation. Designed to be run as a systemd user service,
 # but works standalone as well.
+#
+# Shared code lives in lib/common.sh (or ge-proton-lib/common.sh when
+# installed to ~/.local/bin by install.sh). For picking specific releases
+# by hand, use ge_proton_install.sh / ge_proton_uninstall.sh instead.
 
-GE_Proton_Github="https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
-steamNativeDir=$HOME/.steam/root
-steamFlatpakDir=$HOME/.var/app/com.valvesoftware.Steam/data/Steam
-tmpDir=/tmp/proton-update
-arch=$(uname -m)
+script_id=ge-proton-update
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+tmpDir=${TMPDIR:-/tmp}/proton-update
 
-# Logging helper: a stable prefix makes journalctl -u output identifiable
-log() { echo "[ge-proton-update] $*"; }
-
-# Desktop notification helper: no-op when notify-send (libnotify) is missing
-# or no notification daemon is running, and never fails the update itself
-notify() {
-    command -v notify-send >/dev/null 2>&1 || return 0
-    notify-send -a "GE Proton Updater" "$@" 2>/dev/null || true
-}
+if [[ -f "$script_dir/lib/common.sh" ]]; then
+    source "$script_dir/lib/common.sh"
+elif [[ -f "$script_dir/ge-proton-lib/common.sh" ]]; then
+    source "$script_dir/ge-proton-lib/common.sh"
+else
+    echo "[$script_id] ERROR: cannot find common.sh next to $0" >&2
+    exit 1
+fi
 
 # Always clean up the temp dir and report failure, including when a download,
 # checksum, or extraction step aborts under set -e
@@ -33,30 +34,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ -d "$steamNativeDir" ]]; then
-    log "Using native Steam install at $steamNativeDir"
-    steamDir=$steamNativeDir
-elif [[ -d "$steamFlatpakDir" ]]; then
-    log "Using Flatpak Steam install at $steamFlatpakDir"
-    steamDir=$steamFlatpakDir
-else
-    log "Steam is not installed as native or default flatpak"
-    log "Update the script to point to the correct directory"
-    exit 1
-fi
+detect_steam_dir
 
 # Set and make compatibility directory (mkdir -p is idempotent)
-steamDir=$steamDir/compatibilitytools.d
-mkdir -p "$steamDir"
+mkdir -p "$compatDir"
 
 log "Checking latest GE Proton release"
-releaseJSON=$(curl -sf --retry 3 "$GE_Proton_Github") || { log "Failed to fetch release information from GitHub"; exit 1; }
+releaseJSON=$(fetch_release_json "$GE_Proton_Api/releases/latest") || { log "Failed to fetch release information from GitHub"; exit 1; }
 version=$(echo "$releaseJSON" | grep tag_name | cut -d\" -f4 || true)
 [[ -n "$version" ]] || { log "Could not determine the latest release version"; exit 1; }
 
-# The tarball extracts to <tag>-<arch> in newer releases (e.g. GE-Proton11-9-x86_64),
-# or just <tag> in older ones (e.g. GE-Proton11-3)
-if [[ -d "$steamDir/$version-$arch" || -d "$steamDir/$version" ]]; then
+if is_installed "$version"; then
     log "GE Proton $version is already installed"
     exit 0
 fi
@@ -75,7 +63,7 @@ curl -fsLOJ --retry 3 "$tarballUrl" && curl -fsLOJ --retry 3 "$checksumUrl"
 sha512sum -c ./*.sha512sum
 
 # Extract, then clean up via the EXIT trap
-tar -xf GE-Proton*.tar.gz -C "$steamDir"
+tar -xf GE-Proton*.tar.gz -C "$compatDir"
 
 log "GE Proton $version installed"
 log "Restart Steam if it is open"

@@ -11,11 +11,16 @@ set -euo pipefail
 script_name=ge_proton_update.sh
 service_name=ge-proton-update.service
 unit_name=ge-proton-update
+lib_name=lib/common.sh
+installed_lib_name=ge-proton-lib
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source_script="$repo_dir/$script_name"
+source_lib="$repo_dir/$lib_name"
 bin_dir=$HOME/.local/bin
 installed_script=$bin_dir/$script_name
+installed_lib_dir=$bin_dir/$installed_lib_name
+installed_lib=$installed_lib_dir/common.sh
 unit_dir=$HOME/.config/systemd/user
 unit_file=$unit_dir/$service_name
 
@@ -43,6 +48,11 @@ do_uninstall() {
     if [[ -f "$installed_script" ]]; then
         log "Removing updater script $installed_script"
         rm -f "$installed_script"
+    fi
+
+    if [[ -d "$installed_lib_dir" ]]; then
+        log "Removing shared library $installed_lib_dir"
+        rm -rf "$installed_lib_dir"
     fi
 
     log "Reloading systemd user units"
@@ -101,11 +111,19 @@ if [[ ! -f "$source_script" ]]; then
     die "Updater script not found: $source_script (run install.sh from the repo)"
 fi
 
+if [[ ! -f "$source_lib" ]]; then
+    die "Shared library not found: $source_lib (run install.sh from the repo)"
+fi
+
 # --- Install -----------------------------------------------------------------
 
 log "Installing updater script to $installed_script"
 mkdir -p "$bin_dir"
 install -m 0755 "$source_script" "$installed_script"
+
+log "Installing shared library to $installed_lib"
+install -d -m 0755 "$installed_lib_dir"
+install -m 0644 "$source_lib" "$installed_lib"
 
 log "Writing unit file $unit_file"
 mkdir -p "$unit_dir"
