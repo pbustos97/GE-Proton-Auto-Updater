@@ -21,12 +21,13 @@ interactive_ok() {
 # running in a terminal. Re-prompts on invalid input.
 confirm() {
     local reply
+    local prompt=$1
     if ! interactive_ok; then
         log "Not running interactively; refusing to confirm"
         return 1
     fi
     while :; do
-        read -r -p "$1 [y/N]: " reply || return 1
+        read -r -p "$prompt [y/N]: " reply || return 1
         reply=${reply%$'\r'}
         case $reply in
             y|Y|yes|YES) return 0 ;;
@@ -71,8 +72,8 @@ multi_select() {
 
     # fzf path
     if interactive_ok && command -v fzf >/dev/null 2>&1; then
-        local chosenRaw
-        if ! chosenRaw=$(printf '%s\n' "${lines[@]}" | \
+        local chosen_raw
+        if ! chosen_raw=$(printf '%s\n' "${lines[@]}" | \
             fzf --multi --reverse --height=80% --no-sort \
                 --prompt="$prompt" \
                 --header="TAB/SHIFT-TAB to select, ENTER to confirm, ESC to cancel" 2>/dev/null)
@@ -84,7 +85,7 @@ multi_select() {
             if [[ $line =~ ^([0-9]+)\) ]]; then
                 PICKED+=( "${BASH_REMATCH[1]}" )
             fi
-        done <<<"$chosenRaw"
+        done <<<"$chosen_raw"
         # fzf returns selections in selection order; re-number them ascending
         if (( ${#PICKED[@]} > 0 )); then
             mapfile -t PICKED < <(printf '%s\n' "${PICKED[@]}" | sort -n -u)

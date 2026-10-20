@@ -115,23 +115,26 @@ mkdir -p "$compatDir"
 # Fetch all release tags, newest first. Uses only one page for the default
 # list; --all walks the pages (up to 10, i.e. up to 1000 releases).
 load_release_tags() {
+    local page=1
+    local all=()
+    local page_json
+    local page_tags
     if (( listAll == 0 )); then
-        pageJson=$(fetch_release_json "$GE_Proton_Api/releases?per_page=$listLimit") || { log "Failed to fetch release list from GitHub"; exit 1; }
-        echo "$pageJson" | extract_release_tags
+        page_json=$(fetch_release_json "$GE_Proton_Api/releases?per_page=$listLimit") || { log "Failed to fetch release list from GitHub"; exit 1; }
+        echo "$page_json" | extract_release_tags
         return 0
     fi
-    local page=1 all=() pageTags
     while (( page <= 10 )); do
-        pageJson=$(fetch_release_json "$GE_Proton_Api/releases?per_page=100&page=$page") || { log "Failed to fetch release list (page $page)"; exit 1; }
-        mapfile -t pageTags < <(echo "$pageJson" | extract_release_tags)
-        if (( ${#pageTags[@]} == 0 )); then
+        page_json=$(fetch_release_json "$GE_Proton_Api/releases?per_page=100&page=$page") || { log "Failed to fetch release list (page $page)"; exit 1; }
+        mapfile -t page_tags < <(echo "$page_json" | extract_release_tags)
+        if (( ${#page_tags[@]} == 0 )); then
             break
         fi
-        all+=( "${pageTags[@]}" )
-        if (( ${#pageTags[@]} < 100 )); then
+        all+=( "${page_tags[@]}" )
+        if (( ${#page_tags[@]} < 100 )); then
             break
         fi
-        (( page++ ))
+        (( page += 1 ))
     done
     printf '%s\n' "${all[@]}"
 }

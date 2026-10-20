@@ -15,7 +15,10 @@ arch=$(uname -m)
 script_id=${script_id:-ge-proton}
 
 # Logging helper: a stable prefix makes journalctl -u output identifiable
-log() { echo "[$script_id] $*"; }
+log() {
+    echo "[$script_id] $*"
+    return 0
+}
 
 # Desktop notification helper: no-op when notify-send (libnotify) is missing
 # or no notification daemon is running, and never fails the caller
@@ -47,13 +50,17 @@ detect_steam_dir() {
 # Fetch a GitHub release JSON document. Returns curl's status; callers
 # should treat failure as fatal or skip the release.
 fetch_release_json() {
-    curl -sf --retry 3 "$1"
+    local url=$1
+    local rc=0
+    curl -sf --retry 3 "$url" || rc=$?
+    return "$rc"
 }
 
 # Extract tag_name fields from any GitHub release JSON (single object or
 # releases array). One tag per line, newest first.
 extract_release_tags() {
     grep -oE '"tag_name" *: *"[^"]*"' | cut -d'"' -f4
+    return $?
 }
 
 # Returns success when the given GE Proton tag already has its extracted
@@ -62,5 +69,8 @@ extract_release_tags() {
 # <tag> in older ones (e.g. GE-Proton11-3).
 is_installed() {
     local tag=$1
-    [[ -d "$compatDir/$tag-$arch" || -d "$compatDir/$tag" ]]
+    if [[ -d "$compatDir/$tag-$arch" || -d "$compatDir/$tag" ]]; then
+        return 0
+    fi
+    return 1
 }
