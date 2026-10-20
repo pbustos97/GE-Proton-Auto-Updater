@@ -1,4 +1,4 @@
-# ge-proton-auto-update
+# GE Proton Auto Updater
 
 Automatically keeps [GE Proton](https://github.com/GloriousEggroll/proton-ge-custom) up to date for Steam on Linux.
 
